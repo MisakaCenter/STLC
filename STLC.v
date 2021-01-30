@@ -154,4 +154,9 @@ Definition run (t: tm): tm :=
     | None => const "Unknown Error"
     | Some t' => t'
     end
-  end. 
+  end.
+ 
+Require Coq.extraction.Extraction.
+Extraction Language Haskell.
+Require Coq.extraction.ExtrHaskellString.
+Extraction "STLC.hs" run.
