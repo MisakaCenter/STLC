@@ -1,7 +1,6 @@
 module STLC where
 
 import qualified Prelude
-import GHC.Show
 
 data Nat =
    O
@@ -62,7 +61,8 @@ tail_addmul r n m =
    S n0 -> tail_addmul (tail_add m r) n0 m}
 
 tail_mul :: Nat -> Nat -> Nat
-tail_mul = tail_addmul O
+tail_mul n m =
+  tail_addmul O n m
 
 of_uint_acc :: Uint -> Nat -> Nat
 of_uint_acc d acc =
@@ -181,10 +181,10 @@ of_num_uint d =
    UIntDecimal d0 -> of_uint d0;
    UIntHexadecimal d0 -> of_hex_uint d0}
 
-hd_error :: [] a1 -> Prelude.Maybe a1
+hd_error :: (([]) a1) -> Prelude.Maybe a1
 hd_error l =
   case l of {
-   [] -> Prelude.Nothing;
+   ([]) -> Prelude.Nothing;
    (:) x _ -> Prelude.Just x}
 
 data Ty =
@@ -192,16 +192,17 @@ data Ty =
  | TyBool
  | TyArrow Ty Ty
  | Error
- deriving (Show)
+ deriving (Prelude.Show)
+
 data Tm =
    Const Prelude.String
  | Var Prelude.String
  | App Tm Tm
- | Abs Prelude.String Ty Tm 
- deriving (Show)
+ | Abs Prelude.String Ty Tm
+ deriving (Prelude.Show)
 
-is_const_hd_val_rec :: Tm -> [] Tm -> Prelude.Maybe
-                       ((,) Prelude.String ([] Tm))
+is_const_hd_val_rec :: Tm -> (([]) Tm) -> Prelude.Maybe
+                       ((,) Prelude.String (([]) Tm))
 is_const_hd_val_rec t tl =
   case t of {
    Const s -> Prelude.Just ((,) s tl);
@@ -218,21 +219,17 @@ is_val t =
    App t1 t2 ->
     case is_val t2 of {
      Prelude.True ->
-      case is_const_hd_val_rec t1 ([t2]) of {
+      case is_const_hd_val_rec t1 ((:) t2 ([])) of {
        Prelude.Just _ -> Prelude.True;
        Prelude.Nothing -> Prelude.False};
      Prelude.False -> Prelude.False};
    _ -> Prelude.False}
 
-is_const_hd_val :: Tm -> Prelude.Maybe ((,) Prelude.String ([] Tm))
-is_const_hd_val t =
-  is_const_hd_val_rec t []
-
-rho_check :: [] ((,) Prelude.String Ty) -> Prelude.String ->
+rho_check :: (([]) ((,) Prelude.String Ty)) -> Prelude.String ->
              Prelude.Maybe Ty
 rho_check rho s =
   case rho of {
-   [] -> Prelude.Nothing;
+   ([]) -> Prelude.Nothing;
    (:) p rho' ->
     case p of {
      (,) s' typ ->
@@ -256,8 +253,8 @@ ty_dec type1 type2 =
      _ -> Prelude.False};
    Error -> Prelude.False}
 
-type_check :: [] ((,) Prelude.String Ty) -> []
-              ((,) Prelude.String Ty) -> Tm -> Prelude.Maybe Ty
+type_check :: (([]) ((,) Prelude.String Ty)) -> (([])
+              ((,) Prelude.String Ty)) -> Tm -> Prelude.Maybe Ty
 type_check rho_const0 rho_var t =
   case t of {
    Const s -> rho_check rho_const0 s;
@@ -282,14 +279,15 @@ type_check rho_const0 rho_var t =
      Prelude.Just a -> Prelude.Just (TyArrow typ a);
      Prelude.Nothing -> Prelude.Nothing}}
 
-rho_const :: [] ((,) Prelude.String Ty)
+rho_const :: ([]) ((,) Prelude.String Ty)
 rho_const =
-  [((,) "S" (TyArrow TyNat TyNat)), ((,) "O" TyNat), ((,) "true"
-    TyBool), ((,) "false" TyBool), ((,) "Type Error" Error), ((,)
-    "Unknown Error" Error)]
+  (:) ((,) "S" (TyArrow TyNat TyNat)) ((:) ((,) "O" TyNat) ((:) ((,) "true"
+    TyBool) ((:) ((,) "false" TyBool) ((:) ((,) "Type Error" Error) ((:) ((,)
+    "Unknown Error" Error) ([]))))))
 
 type_checker :: Tm -> Prelude.Maybe Ty
-type_checker = type_check rho_const []
+type_checker t =
+  type_check rho_const ([]) t
 
 free_var_count :: Prelude.String -> Tm -> Nat
 free_var_count s t =
@@ -313,10 +311,10 @@ free_var_dec s t =
    O -> Prelude.False;
    S _ -> Prelude.True}
 
-var_subst :: [] ((,) Prelude.String Tm) -> Prelude.String -> Tm
+var_subst :: (([]) ((,) Prelude.String Tm)) -> Prelude.String -> Tm
 var_subst l x =
   case l of {
-   [] -> Var x;
+   ([]) -> Var x;
    (:) p l0 ->
     case p of {
      (,) x' t' ->
@@ -325,7 +323,7 @@ var_subst l x =
        Prelude.True -> t';
        Prelude.False -> var_subst l0 x}}}
 
-tm_subst :: [] ((,) Prelude.String Tm) -> Tm -> Tm
+tm_subst :: (([]) ((,) Prelude.String Tm)) -> Tm -> Tm
 tm_subst l t =
   case t of {
    Const s -> Const s;
@@ -335,7 +333,7 @@ tm_subst l t =
     let {
      abs_subst l0 =
        case l0 of {
-        [] -> Abs s typ t;
+        ([]) -> Abs s typ t;
         (:) p l1 ->
          case p of {
           (,) x' _ ->
@@ -355,12 +353,12 @@ next_state t =
    App t1 t2 ->
     case t1 of {
      Abs s typ t3 ->
-      case is_const_hd_val t2 of {
-       Prelude.Just _ ->
+      case is_val t2 of {
+       Prelude.True -> Prelude.Just (tm_subst ((:) ((,) s t2) ([])) t3);
+       Prelude.False ->
         case next_state t2 of {
          Prelude.Just t2' -> Prelude.Just (App (Abs s typ t3) t2');
-         Prelude.Nothing -> Prelude.Nothing};
-       Prelude.Nothing -> Prelude.Just (tm_subst ([((,) s t2)]) t3)};
+         Prelude.Nothing -> Prelude.Nothing}};
      _ ->
       case next_state t1 of {
        Prelude.Just t' -> Prelude.Just (App t' t2);
@@ -370,14 +368,14 @@ next_state t =
          Prelude.Nothing -> Prelude.Just (App t1 t2)}}};
    _ -> Prelude.Nothing}
 
-multi_state_pre :: Nat -> Tm -> [] Tm
+multi_state_pre :: Nat -> Tm -> ([]) Tm
 multi_state_pre limit t =
   case limit of {
-   O -> [];
+   O -> ([]);
    S n ->
     case next_state t of {
      Prelude.Just t' -> (:) t' (multi_state_pre n t');
-     Prelude.Nothing -> []}}
+     Prelude.Nothing -> (:) t ([])}}
 
 default_limit :: Nat
 default_limit =
@@ -395,3 +393,4 @@ run t =
      Prelude.Just t' -> t';
      Prelude.Nothing -> Const "Unknown Error"};
    Prelude.Nothing -> Const "Type Error"}
+
