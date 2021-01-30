@@ -116,13 +116,12 @@ Fixpoint next_state (t: tm): option tm :=
   | const _ => None
   | var _ => None
   | abs _ _ _ => None
-  | app (abs s typ t1) t2 => match is_const_hd_val t2 with
-                         | None => Some (tm_subst [(s,t2)] t1)
-                         | Some _ => match next_state t2 with
+  | app (abs s typ t1) t2 => if is_val t2 
+                                then Some (tm_subst [(s,t2)] t1)
+                                else match next_state t2 with
                                      | Some t2' => Some (app (abs s typ t1) t2')
                                      | None => None
                                      end
-                         end
   | app t1 t2 => match next_state t1 with
                  | Some t' => Some (app t' t2)
                  | None => match next_state t2 with
@@ -138,7 +137,7 @@ Fixpoint multi_state_pre (limit: nat) (t: tm): list tm :=
   | S n => 
     match next_state t with
     | Some t' => t' :: (multi_state_pre n t')
-    | None => nil
+    | None => [t]
     end
   end.
 
@@ -155,7 +154,7 @@ Definition run (t: tm): tm :=
     | Some t' => t'
     end
   end.
- 
+
 Require Coq.extraction.Extraction.
 Extraction Language Haskell.
 Require Coq.extraction.ExtrHaskellString.
